@@ -75,6 +75,7 @@
 #include "rgbLED.h"
 #include "breathalyzer.h"
 #include "initClock.h"
+#include "speaker.h"
 typedef enum _SwitchState{Pressed, NotPressed} SwitchState;
 /* Statics */
 static volatile uint16_t curADCResult;
@@ -103,11 +104,10 @@ TIMER_A_CLOCKSOURCE_SMCLK,
 const uint8_t port_mapping[] = {
 //Port P2:
         /* DONE   modify pmap value for TA0CCR0 */
-        PMAP_NONE,
-        PMAP_NONE, PMAP_NONE, PMAP_NONE, PMAP_NONE, PMAP_TA0CCR0A,
-        PMAP_NONE,
-        PMAP_NONE };
-const Timer_A_UpModeConfig upConfig = {
+        PMAP_NONE,PMAP_NONE,
+        PMAP_TA0CCR0A, PMAP_NONE, PMAP_NONE, PMAP_NONE,
+        PMAP_NONE,PMAP_NONE };
+const Timer_A_UpModeConfig upConfigSpeaker = {
         TIMER_A_CLOCKSOURCE_SMCLK,              // SMCLK Clock SOurce
         /* DONE change clock divider */
         TIMER_A_CLOCKSOURCE_DIVIDER_1,          // SMCLK/1 = 3MHz
@@ -126,7 +126,15 @@ const Timer_A_UpModeConfig upConfigBrethalyzerRead =
  TIMER_A_CCIE_CCR0_INTERRUPT_ENABLE ,    // Enable CCR0 interrupt
  TIMER_A_DO_CLEAR                        // Clear value
 };
-
+const Timer_A_UpModeConfig upConfigSpeaker1 =
+{
+ TIMER_A_CLOCKSOURCE_SMCLK,              // SMCLK Clock Source
+ TIMER_A_CLOCKSOURCE_DIVIDER_64,         // SMCLK/64 = 46875 Hz
+ 46875/2,                                // 46875/2 tick period
+ TIMER_A_TAIE_INTERRUPT_ENABLE,          // Enable Timer interrupt
+ TIMER_A_CCIE_CCR0_INTERRUPT_DISABLE ,   // Disable CCR0 interrupt
+ TIMER_A_DO_CLEAR                        // Clear value
+};
 
 const Timer_A_CompareModeConfig compareConfig_PWM = {
 TIMER_A_CAPTURECOMPARE_REGISTER_0,          // Use CCR0
@@ -143,6 +151,7 @@ int main(void)
     curADCResult = 0;
     initADC14();
     initClocks();
+    long long boi = CS_getSMCLK();
     // Configure and Initialize LCD
     configLCD(GPIO_PORT_P2, GPIO_PIN6, GPIO_PORT_P2, GPIO_PIN7, GPIO_PORT_P4);
     initDelayTimer(CS_getMCLK());
@@ -156,7 +165,7 @@ int main(void)
     // Initialize RGB LED
     RGBLED_init();
     //P2.4 as Output for Servo
-    MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P2, GPIO_PIN4,
+    MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P3, GPIO_PIN2,
     GPIO_PRIMARY_MODULE_FUNCTION);
     /* Configuring Timer_A to have a period of approximately 500ms and
      * an initial duty cycle of 10% of that (3200 ticks)  */
@@ -167,16 +176,21 @@ int main(void)
             GPIO_PORT_P3,
             GPIO_PIN3,
             GPIO_PRIMARY_MODULE_FUNCTION);
-    MAP_Timer_A_initCompare(TIMER_A1_BASE, &compareConfig_PWM);
     /* Configuring Timer_A1 for UpDown Mode and starting */
     /* DONE change timer to TA0, use new struct, change mode */
-    MAP_Timer_A_configureUpMode(TIMER_A1_BASE, &upConfig);
-    MAP_Timer_A_startCounter(TIMER_A1_BASE, TIMER_A_UP_MODE);
     initADC14Module();
     MAP_Timer_A_configureUpMode(TIMER_A2_BASE, &upConfigBrethalyzerRead);
      /* Enabling interrupts */
-    //MAP_Interrupt_enableSleepOnIsrExit();
+   // MAP_Interrupt_enableSleepOnIsrExit();
     MAP_Timer_A_startCounter(TIMER_A2_BASE, TIMER_A_UP_MODE);
+      MAP_Timer_A_initCompare(TIMER_A0_BASE, &compareConfig_PWM);
+      /* Configuring Timer_A1 for UpDown Mode and starting */
+      MAP_Timer_A_configureUpMode(TIMER_A0_BASE, &upConfigSpeaker);
+      MAP_Timer_A_startCounter(TIMER_A0_BASE, TIMER_A_UP_MODE);
+      //playTone();
+      //delaySeconds(5);
+      //stopTone();
+
 
     //MAP_Interrupt_enableInterrupt(INT_ADC14);
     MAP_Interrupt_enableMaster();

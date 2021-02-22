@@ -11,6 +11,7 @@
 #include "lcd.h"
 #include "delays.h"
 #include "rgbLED.h"
+#include "speaker.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -43,7 +44,10 @@ void start(void){
     updateScreen("Brethalyzer     ","Module Start    ");
 }
 void beginBlowing(void){
+    playTone();
     updateScreen("Begin Blowing   ","into Brethalyzer");
+    delaySeconds(1);
+    stopTone();
 }
 void readValuesAndStop(int *count){
     delaySeconds(5);
@@ -59,9 +63,11 @@ void printValues(float AnalogValues){
     long double ratio = resistance/((2.2)*pow(10,6));
     long double ppmBAC = .00383*pow((1/ratio),(5000/1041))-.003;
     //long long bro = (exp((-1.51*(10^-6))*resistance));
+    playTone();
     updateScreen("  Stop Blowing  ","                ");
     RGBLED_setColor(BLUE);
     delaySeconds(2);
+    stopTone();
     sprintf((char*)analog,"      %.2f %%     ",ppmBAC);
     updateScreen("Your BAC is:    ",analog);
 }
