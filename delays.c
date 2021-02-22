@@ -44,3 +44,9 @@ int delayMicroSec(uint32_t micros) {
 int delayMilliSec(uint32_t millis) {
     return delayMicroSec(1000 * millis);
 }
+void delaySeconds(uint32_t seconds){
+    int i;
+    for (i = 0; i < seconds; i++){
+        delayMilliSec(1000);
+    }
+}

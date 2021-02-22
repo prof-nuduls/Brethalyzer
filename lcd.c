@@ -86,19 +86,26 @@ void writeInstruction(uint8_t mode, uint8_t instruction) {
  */
 void writeInstruction4bit(uint8_t mode, uint8_t instruction) {
     GPIO_setOutputLowOnPin(DB_Port, PIN_ALL8);
-    if (mode == DATA_MODE) {
-        GPIO_setOutputHighOnPin(RS_Port, RS_Pin);
-    } else {
-        GPIO_setOutputLowOnPin(RS_Port, RS_Pin);
-    }
-    GPIO_setOutputHighOnPin(EN_Port, EN_Pin);
-    GPIO_setOutputHighOnPin(DB_Port, instruction);
-    delayMicroSec(1);
-    GPIO_setOutputLowOnPin(EN_Port, EN_Pin);
-    instructionDelay(mode, instruction);
+       if (mode == DATA_MODE) {
+           GPIO_setOutputHighOnPin(RS_Port, RS_Pin);
+       } else {
+           GPIO_setOutputLowOnPin(RS_Port, RS_Pin);
+       }
+       GPIO_setOutputHighOnPin(EN_Port, EN_Pin);
+       GPIO_setOutputHighOnPin(DB_Port, instruction & 0xF0);
+       delayMicroSec(1);
+       GPIO_setOutputLowOnPin(EN_Port, EN_Pin);
+       GPIO_setOutputLowOnPin(DB_Port,PIN_ALL8);
+       delayMicroSec(1);
+       GPIO_setOutputHighOnPin(DB_Port, (instruction & 0x0F)<<4);
+       GPIO_setOutputHighOnPin(EN_Port, EN_Pin);
+       delayMicroSec(1);
+       GPIO_setOutputLowOnPin(EN_Port, EN_Pin);
+       GPIO_setOutputLowOnPin(DB_Port,PIN_ALL8);
+       instructionDelay(mode, instruction);
 }
 void commandInstruction(uint8_t command) {
-    writeInstruction(CTRL_MODE, command);
+    writeInstruction4bit(CTRL_MODE, command);
 }
 
 /*!
@@ -109,7 +116,7 @@ void commandInstruction(uint8_t command) {
  * \return None
  */
 void dataInstruction(uint8_t data) {
-    writeInstruction(DATA_MODE, data);
+    writeInstruction4bit(DATA_MODE, data);
 }
 
 void initLCD(void) {
@@ -142,19 +149,11 @@ void initLCD4bit(void){
     delayMicroSec(SHORT_INSTR_DELAY);
     commandInstruction(0x02);
     delayMicroSec(SHORT_INSTR_DELAY);
-    commandInstruction(0x02);
+    commandInstruction(0x28);
     delayMicroSec(SHORT_INSTR_DELAY);
     commandInstruction(0x08);
-    delayMicroSec(SHORT_INSTR_DELAY);
-    commandInstruction(0x00);
-    delayMicroSec(SHORT_INSTR_DELAY);
-    commandInstruction(0x08);
-    delayMicroSec(SHORT_INSTR_DELAY);
-    commandInstruction(0x00);
     delayMicroSec(SHORT_INSTR_DELAY);
     commandInstruction(0x01);
-    delayMicroSec(SHORT_INSTR_DELAY);
-    commandInstruction(0x00);
     delayMicroSec(SHORT_INSTR_DELAY);
     commandInstruction(0x06);
     // Initialization complete, turn ON display

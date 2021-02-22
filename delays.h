@@ -66,6 +66,11 @@ extern int delayMilliSec(uint32_t millis);
 // Mark the end of the C bindings section for C++ compilers.
 //
 //*****************************************************************************
+extern void delaySeconds(uint32_t seconds);
+/*
+ *
+ *
+ */
 #ifdef __cplusplus
 }
 #endif

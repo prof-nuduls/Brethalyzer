@@ -140,6 +140,7 @@ extern void initLCD(void);
  */
 extern void commandInstruction(uint8_t command);
 extern void printChar(char character);
+extern void initLCD4bit(void);
 
 //*****************************************************************************
 //
