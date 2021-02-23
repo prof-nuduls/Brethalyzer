@@ -85,6 +85,7 @@ float AnalogValues = 0;
 #define SwitchS1   GPIO_PIN1
 #define TIMER_PERIOD    60000
 #define MIN_ANGLE       1625
+#define UNLOCKED        3813
 #define MAX_ANGLE       7250 + 938
 #define TEN_DEGREE      1094
 #define NOTEG3          7654
@@ -120,7 +121,7 @@ const Timer_A_UpModeConfig upConfigSpeaker = {
 const Timer_A_UpModeConfig upConfigBrethalyzerRead =
 {
  TIMER_A_CLOCKSOURCE_SMCLK,              // SMCLK Clock Source
- TIMER_A_CLOCKSOURCE_DIVIDER_16,          // SMCLK/16 = 1.875 kHz
+ TIMER_A_CLOCKSOURCE_DIVIDER_16,          // SMCLK/16 = 187.5 kHz
  3750         ,                          // 10986 tick period
  TIMER_A_TAIE_INTERRUPT_DISABLE,         // Disable Timer interrupt
  TIMER_A_CCIE_CCR0_INTERRUPT_ENABLE ,    // Enable CCR0 interrupt
@@ -169,7 +170,10 @@ int main(void)
     GPIO_PRIMARY_MODULE_FUNCTION);
     /* Configuring Timer_A to have a period of approximately 500ms and
      * an initial duty cycle of 10% of that (3200 ticks)  */
+    MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P2, GPIO_PIN4,
+                GPIO_PRIMARY_MODULE_FUNCTION);
     MAP_Timer_A_generatePWM(TIMER_A0_BASE, &pwmConfig);
+
     MAP_PMAP_configurePorts((const uint8_t*) port_mapping, PMAP_P3MAP, 1,
     PMAP_DISABLE_RECONFIGURATION);
     MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(
@@ -190,7 +194,8 @@ int main(void)
       //playTone();
       //delaySeconds(5);
       //stopTone();
-
+      pwmConfig.dutyCycle = MIN_ANGLE;
+      MAP_Timer_A_generatePWM(TIMER_A0_BASE, &pwmConfig);
 
     //MAP_Interrupt_enableInterrupt(INT_ADC14);
     MAP_Interrupt_enableMaster();
@@ -218,8 +223,27 @@ int main(void)
             readValuesAndStop(&count);
             brethalyzerOff();
             printValues(AnalogValues);
+            delaySeconds(3);
+            updateScreen("Processing      ", "                ");
+            delayMilliSec(500);
+            updateScreen("Processing.     ", "                ");
+            delayMilliSec(500);
+            updateScreen("Processing..    ", "                ");
+            delayMilliSec(500);
+            updateScreen("Processing...   ", "                ");
+            delayMilliSec(500);
+            int BAC = (ConvertValues(AnalogValues) * 100);
+           if (8 > BAC) {
+                    updateScreen("Your Car is     ","    UNLOCKED    ");
+                    pwmConfig.dutyCycle = UNLOCKED;
+                    MAP_Timer_A_generatePWM(TIMER_A0_BASE, &pwmConfig);
+                }
+                else{
+                    updateScreen("Your Car is     ","     LOCKED     ");
+                }
         }
     }
+
     //end if(S1Status==Pressed)
 }
 

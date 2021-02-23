@@ -8,7 +8,11 @@
 #ifndef BREATHALYZER_H_
 #define BREATHALYZER_H_
 
-void convertValues(int voltage);
+extern long double ConvertValues(float AnalogValues);
+/*
+ *
+ */
+extern bool car(long double BAC);
 extern void start(void);
 /*
  *
