@@ -44,7 +44,7 @@
  *            |                  |
  *            |                  |
  *            |                  |
- * Author: 
+ * Author:
  *
  *
  *
@@ -80,6 +80,7 @@ typedef enum _SwitchState{Pressed, NotPressed} SwitchState;
 /* Statics */
 static volatile uint16_t curADCResult;
 static volatile float normalizedADCRes;
+static volatile bool debounced;
 float AnalogValues = 0;
 #define SwitchPort GPIO_PORT_P1
 #define SwitchS1   GPIO_PIN1
@@ -121,24 +122,25 @@ const Timer_A_UpModeConfig upConfigSpeaker = {
 const Timer_A_UpModeConfig upConfigBrethalyzerRead =
 {
  TIMER_A_CLOCKSOURCE_SMCLK,              // SMCLK Clock Source
- TIMER_A_CLOCKSOURCE_DIVIDER_16,          // SMCLK/16 = 187.5 kHz
+ TIMER_A_CLOCKSOURCE_DIVIDER_1,          // SMCLK/16 = 187.5 kHz
  3750         ,                          // 10986 tick period
  TIMER_A_TAIE_INTERRUPT_DISABLE,         // Disable Timer interrupt
  TIMER_A_CCIE_CCR0_INTERRUPT_ENABLE ,    // Enable CCR0 interrupt
  TIMER_A_DO_CLEAR                        // Clear value
 };
-const Timer_A_UpModeConfig upConfigSpeaker1 =
+
+Timer_A_UpModeConfig speakHoeBuzzConfig =
 {
- TIMER_A_CLOCKSOURCE_SMCLK,              // SMCLK Clock Source
- TIMER_A_CLOCKSOURCE_DIVIDER_64,         // SMCLK/64 = 46875 Hz
- 46875/2,                                // 46875/2 tick period
+ TIMER_A_CLOCKSOURCE_SMCLK,              // SMCLK Clock SOurce
+ TIMER_A_CLOCKSOURCE_DIVIDER_1,          // SMCLK/1 = 48MHz
+ 23050,                                  // 23050 tick period
  TIMER_A_TAIE_INTERRUPT_ENABLE,          // Enable Timer interrupt
- TIMER_A_CCIE_CCR0_INTERRUPT_DISABLE ,   // Disable CCR0 interrupt
+ TIMER_A_CCIE_CCR0_INTERRUPT_DISABLE,    // Disable CCR1 interrupt
  TIMER_A_DO_CLEAR                        // Clear value
 };
 
 const Timer_A_CompareModeConfig compareConfig_PWM = {
-TIMER_A_CAPTURECOMPARE_REGISTER_0,          // Use CCR0
+        TIMER_A_CAPTURECOMPARE_REGISTER_0,          // Use CCR0
         TIMER_A_CAPTURECOMPARE_INTERRUPT_DISABLE,   // Disable CCR interrupt
         TIMER_A_OUTPUTMODE_TOGGLE,                  // Toggle output
         NOTEG3                             //Begin with frequency of G3 in CCR0
@@ -159,49 +161,65 @@ int main(void)
     initLCD4bit();
     //turn off brethalyzer
     brethalyzerOff();
+
+    //this will be where we enter into sleep mode
+    GPIO_setAsInputPin(GPIO_PORT_P1, GPIO_PIN5);
+    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P1, GPIO_PIN5);
+    MAP_GPIO_enableInterrupt(GPIO_PORT_P1, GPIO_PIN5);
+    MAP_Interrupt_enableInterrupt(INT_PORT1);
+    MAP_Interrupt_enableMaster();
+    bool sanitity = PCM_setPowerState(PCM_LPM45);
+
     // Set S1 as input
     MAP_GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P1, GPIO_PIN1);
+    // Set ethanol pins
     MAP_GPIO_setAsOutputPin(GPIO_PORT_P3,GPIO_PIN6);
     MAP_GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P6,GPIO_PIN0);
     // Initialize RGB LED
     RGBLED_init();
     //P2.4 as Output for Servo
-    MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P3, GPIO_PIN2,
-    GPIO_PRIMARY_MODULE_FUNCTION);
     /* Configuring Timer_A to have a period of approximately 500ms and
      * an initial duty cycle of 10% of that (3200 ticks)  */
     MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P2, GPIO_PIN4,
                 GPIO_PRIMARY_MODULE_FUNCTION);
     MAP_Timer_A_generatePWM(TIMER_A0_BASE, &pwmConfig);
 
-    MAP_PMAP_configurePorts((const uint8_t*) port_mapping, PMAP_P3MAP, 1,
-    PMAP_DISABLE_RECONFIGURATION);
-    MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(
-            GPIO_PORT_P3,
-            GPIO_PIN3,
-            GPIO_PRIMARY_MODULE_FUNCTION);
-    /* Configuring Timer_A1 for UpDown Mode and starting */
+    //MAP_PMAP_configurePorts((const uint8_t*) port_mapping, PMAP_P3MAP, 1, PMAP_DISABLE_RECONFIGURATION);
+    //MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P3, GPIO_PIN2, GPIO_PRIMARY_MODULE_FUNCTION);
     /* DONE change timer to TA0, use new struct, change mode */
     initADC14Module();
+
     MAP_Timer_A_configureUpMode(TIMER_A2_BASE, &upConfigBrethalyzerRead);
+
      /* Enabling interrupts */
-   // MAP_Interrupt_enableSleepOnIsrExit();
+    //timer 32 note durations setup/ control code
+    MAP_Timer32_initModule(TIMER32_0_BASE, TIMER32_PRESCALER_1, TIMER32_16BIT,
+                           TIMER32_FREE_RUN_MODE);
+    MAP_Timer32_enableInterrupt(TIMER32_0_BASE);
+    //MAP_Timer32_startTimer(TIMER32_0_BASE, true);
+    /* Enabling interrupts and starting the timer */
+    MAP_Interrupt_enableInterrupt(INT_T32_INT1);
+
+    // MAP_Interrupt_enableSleepOnIsrExit();
     MAP_Timer_A_startCounter(TIMER_A2_BASE, TIMER_A_UP_MODE);
-      MAP_Timer_A_initCompare(TIMER_A0_BASE, &compareConfig_PWM);
-      /* Configuring Timer_A1 for UpDown Mode and starting */
-      MAP_Timer_A_configureUpMode(TIMER_A0_BASE, &upConfigSpeaker);
-      MAP_Timer_A_startCounter(TIMER_A0_BASE, TIMER_A_UP_MODE);
-      //playTone();
-      //delaySeconds(5);
-      //stopTone();
-      pwmConfig.dutyCycle = MIN_ANGLE;
-      MAP_Timer_A_generatePWM(TIMER_A0_BASE, &pwmConfig);
+    //pitch timer
+    MAP_Timer_A_configureUpMode(TIMER_A3_BASE, &upConfigSpeaker);
+    //pitch timer
+    MAP_Timer_A_initCompare(TIMER_A3_BASE, &compareConfig_PWM);
+    //start counter
+    MAP_Timer_A_startCounter(TIMER_A3_BASE, TIMER_A_UP_MODE);
+
+    //tom janko mode
+    MAP_Timer_A_configureUpMode(TIMER_A1_BASE, &speakHoeBuzzConfig);
+    MAP_Interrupt_enableInterrupt(INT_TA1_N);
+    MAP_Timer_A_startCounter(TIMER_A1_BASE, TIMER_A_UP_MODE);
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P3,GPIO_PIN2);
 
     //MAP_Interrupt_enableInterrupt(INT_ADC14);
     MAP_Interrupt_enableMaster();
     S1Status = CheckS1();
-    start();
-    while (S1Status == NotPressed)
+    //start();
+    /*while (S1Status == NotPressed)
     {
         S1Status = CheckS1();
         if (S1Status == Pressed)
@@ -209,7 +227,9 @@ int main(void)
 
             promptUser();
         }
-    }
+    }*/
+    wakeUp();
+    promptUser();
     S1Status = NotPressed;
     while (S1Status == NotPressed)
     {
@@ -235,7 +255,7 @@ int main(void)
             int BAC = (ConvertValues(AnalogValues) * 100);
            if (8 > BAC) {
                     updateScreen("Your Car is     ","    UNLOCKED    ");
-                    pwmConfig.dutyCycle = UNLOCKED;
+                    pwmConfig.dutyCycle = 3813;
                     MAP_Timer_A_generatePWM(TIMER_A0_BASE, &pwmConfig);
                 }
                 else{
@@ -249,7 +269,11 @@ int main(void)
 
 void debounce(void)
 {
-    for (ii = 0; ii < 100; ii++);
+    debounced = false;
+    MAP_Timer32_setCount(TIMER32_0_BASE, 100);
+    MAP_Timer32_startTimer(TIMER32_0_BASE, true);
+    while(!debounced);
+
 //delay time for debouncing switches
 } //end debounce()
 
@@ -276,6 +300,13 @@ SwitchState CheckS1(void)
     }
 
 }
+
+void T32_INT1_IRQHandler(void) //This interrupt will set the pitch period and the duration of the next note.
+{
+    MAP_Timer32_clearInterruptFlag(TIMER32_0_BASE);
+    debounced = true;
+}
+
 void TA2_0_IRQHandler(void)
 {
    count++;
@@ -285,4 +316,28 @@ void TA2_0_IRQHandler(void)
    MAP_ADC14_toggleConversionTrigger();
    MAP_Timer_A_clearCaptureCompareInterrupt(TIMER_A2_BASE,
                                              TIMER_A_CAPTURECOMPARE_REGISTER_0); //clear flag
+}
+
+void TA1_N_IRQHandler(void) //This will end the debounce delay and halt the debounce timer
+{
+    MAP_Timer_A_clearInterruptFlag(TIMER_A1_BASE);
+    MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P3,GPIO_PIN2);
+}
+
+/* GPIO ISR */
+void PORT1_IRQHandler(void)
+{
+    uint32_t status;
+
+    status = MAP_GPIO_getEnabledInterruptStatus(GPIO_PORT_P1);
+    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P1, status);
+
+    /* Toggling the output on the LED */
+    if(status & GPIO_PIN5)
+    {
+        //keyless = false;
+        //PCM_setPowerState(PCM_AM_LDO_VCORE0);
+        //Interrupt_disableSleepOnIsrExit();
+    }
+
 }

@@ -67,7 +67,7 @@ void start(void){
     updateScreen("Brethalyzer     ","Module Start    ");
 }
 void beginBlowing(void){
-    playTone();
+    middleTone();
     updateScreen("Begin Blowing   ","into Brethalyzer");
     delaySeconds(1);
     stopTone();

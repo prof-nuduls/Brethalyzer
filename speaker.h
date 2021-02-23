@@ -16,5 +16,12 @@ extern void stopTone(void);
 /*
  *
  */
-
+extern void wakeUp(void);
+/*
+ *
+ */
+extern void middleTone(void);
+/*
+ *
+ */
 #endif /* SPEAKER_H_ */
