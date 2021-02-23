@@ -216,6 +216,7 @@ int main(void)
             Wait();
             beginBlowing();
             readValuesAndStop(&count);
+            brethalyzerOff();
             printValues(AnalogValues);
         }
     }
@@ -249,6 +250,7 @@ SwitchState CheckS1(void)
     {
         return NotPressed;
     }
+
 }
 void TA2_0_IRQHandler(void)
 {

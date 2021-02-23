@@ -22,7 +22,15 @@ void ConvertValues(int voltage){
 
 }
 void promptUser(void){
-    updateScreen("Warming Up...   ","                ");
+    updateScreen("Warming Up      ", "                ");
+    delayMilliSec(500);
+    updateScreen("Warming Up.     ", "                ");
+    delayMilliSec(500);
+    updateScreen("Warming Up..    ", "                ");
+    delayMilliSec(500);
+    updateScreen("Warming Up...   ", "                ");
+    delayMilliSec(500);
+    updateScreen("Device Ready    ","                ");
     delayMilliSec(1000);
     updateScreen("  Press Button  ","    to start    ");
 }
@@ -54,15 +62,17 @@ void readValuesAndStop(int *count){
     MAP_Interrupt_enableInterrupt(INT_TA2_0);
     while (*count <= 50);
     MAP_Interrupt_disableInterrupt(INT_TA2_0);
+
 }
 void printValues(float AnalogValues){
     char analog[16];
     AnalogValues = AnalogValues/50;
     //conversion = (-3 * 10^5)*(ln(ppm))*(2*10^6);
-    long double resistance = (abs((5-AnalogValues)/((AnalogValues/100000))));
-    long double ratio = resistance/((2.2)*pow(10,6));
-    long double ppmBAC = .00383*pow((1/ratio),(5000/1041))-.003;
+    long double resistance = (abs((3.3-AnalogValues)/((AnalogValues/200000))));
+    long double ratio = resistance/((2)*pow(10,6));
+    long double ppmBAC = fabs(.00383*pow((1/ratio),(5000/1041)));
     //long long bro = (exp((-1.51*(10^-6))*resistance));
+    delaySeconds(1);
     playTone();
     updateScreen("  Stop Blowing  ","                ");
     RGBLED_setColor(BLUE);
