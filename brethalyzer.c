@@ -1,7 +1,8 @@
 /*!
  * breathalyzer.c
- *
- *      Author: ece230
+ *      description: Header file to do the bulk of the calculations and LCD display
+ *      for the Brethalyzer module.
+ *      Author: millerd7
  */
 
 /* DriverLib Includes */

@@ -1,51 +1,23 @@
-/* --COPYRIGHT--,BSD
- * Copyright (c) 2017, Texas Instruments Incorporated
- * All rights reserved.
+/*main.c
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ * ECE230 Capstone Final Project
+ * Brethalyzer with RFID Keyless start
  *
- * *  Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
+ * Description:
  *
- * *  Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
+ * Represents a Car module brethalyzer, meaning only if
+ * you blow a 0.00% BAC will your car unlock. Where P2.4 our servo represents
+ * whether the car is locked or not. P1.1 is the onboard Switch, P3.2 is the Speaker,
+ * and P6.0 is the results from the Brethalyzer.
  *
- * *  Neither the name of Texas Instruments Incorporated nor the names of
- *    its contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
+ *Brethalyzer will remain in Low Power mode until a signal from the Arduino
+ *at P5.0 indicates that RFID has been read and it is the correct key and to
+ *unlock the brethalyzer module. Brethalyzer module steps user through performing a
+ *brethalyzer test and then displays the BAC recorded and if the user is above 0.08
+ *the car will "lock" and if the user is below 0.00 the car will "unlock"
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * --/COPYRIGHT--*/
-/******************************************************************************
- * MSP432 Empty Project
  *
- * Description: An empty project that uses DriverLib
- *
- *                MSP432P401
- *             ------------------
- *         /|\|                  |
- *          | |                  |
- *          --|RST               |
- *            |                  |
- *            |                  |
- *            |                  |
- *            |                  |
- *            |                  |
- * Author:
- *
+ * Author: Derick Miller and Tom Kirchhoffer
  *
  *
  * LCD:
@@ -218,16 +190,7 @@ int main(void)
     //MAP_Interrupt_enableInterrupt(INT_ADC14);
     MAP_Interrupt_enableMaster();
     S1Status = CheckS1();
-    //start();
-    /*while (S1Status == NotPressed)
-    {
-        S1Status = CheckS1();
-        if (S1Status == Pressed)
-        {
-
-            promptUser();
-        }
-    }*/
+    //play wakeup tones and tell user to press the start button
     wakeUp();
     promptUser();
     S1Status = NotPressed;
@@ -237,6 +200,7 @@ int main(void)
         if (S1Status == Pressed)
         {
             S1Status = NotPressed; //set S1Status as NotPressed
+            //set brethalyzer on and wait appropriate time before recording values
             brethalyzerOn();
             Wait();
             beginBlowing();
@@ -253,7 +217,8 @@ int main(void)
             updateScreen("Processing...   ", "                ");
             delayMilliSec(500);
             int BAC = (ConvertValues(AnalogValues) * 100);
-           if (8 > BAC) {
+            //lock or unlock the car accordingly
+            if (8 > BAC) {
                     updateScreen("Your Car is     ","    UNLOCKED    ");
                     pwmConfig.dutyCycle = 3813;
                     MAP_Timer_A_generatePWM(TIMER_A0_BASE, &pwmConfig);
@@ -267,7 +232,7 @@ int main(void)
     //end if(S1Status==Pressed)
 }
 
-void debounce(void)
+void debounce(void) //debounce function for switches using Timer32
 {
     debounced = false;
     MAP_Timer32_setCount(TIMER32_0_BASE, 100);
@@ -277,7 +242,8 @@ void debounce(void)
 //delay time for debouncing switches
 } //end debounce()
 
-SwitchState CheckS1(void)
+
+SwitchState CheckS1(void) //check switch values and return the switch state
 {
     char switchValue;
     switchValue = GPIO_getInputPinValue(SwitchPort, SwitchS1);
@@ -307,7 +273,7 @@ void T32_INT1_IRQHandler(void) //This interrupt will set the pitch period and th
     debounced = true;
 }
 
-void TA2_0_IRQHandler(void)
+void TA2_0_IRQHandler(void) //This interrupt converts digital values to analog voltages
 {
    count++;
    curADCResult = MAP_ADC14_getResult(ADC_MEM0);

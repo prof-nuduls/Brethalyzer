@@ -1,10 +1,8 @@
 /*!
  * initClock.c
+ *      Description: initialize clocks to save space in main.c
  *
- *      Description: Helper file for LCD library. For Hitachi HD44780 parallel LCD
- *               in 8-bit mode.
- *
- *      Author: ece230
+ *      Author: millerd7 and TI
  */
 
 /* DriverLib Includes */
